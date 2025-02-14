@@ -14,6 +14,7 @@ import (
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 )
 
 type Options struct {
@@ -56,11 +57,11 @@ type Watcher struct {
 	refreshInterval time.Duration
 	etcdTimeout     time.Duration
 
-	fields       map[string]any
-	valueConfigs map[string]valueConfig
+	fields map[string]any
 
-	mu          sync.RWMutex
-	subscribers map[string]chan string
+	mu           sync.RWMutex
+	valueConfigs map[string]valueConfig
+	subscribers  map[string]chan string
 }
 
 type valueConfig struct {
@@ -135,7 +136,7 @@ func NewWatcher(logger *zap.Logger, conf any, options ...Option) (*Watcher, erro
 	}, nil
 }
 
-func (w *Watcher) subscribe(name string, ch chan string) bool {
+func (w *Watcher) subscribe(name string, ch chan string, defaultValue *string) bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -143,6 +144,12 @@ func (w *Watcher) subscribe(name string, ch chan string) bool {
 		return false
 	}
 	w.subscribers[name] = ch
+	if defaultValue != nil {
+		w.valueConfigs[name] = valueConfig{
+			Path:    w.valueConfigs[name].Path,
+			Default: *defaultValue,
+		}
+	}
 	return true
 }
 
@@ -175,10 +182,16 @@ func (w *Watcher) readCurrentValue(ctx context.Context, name, path string, defau
 	return string(response.Kvs[0].Value), nil
 }
 
+func (w *Watcher) configs() map[string]valueConfig {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return maps.Clone(w.valueConfigs)
+}
+
 func (w *Watcher) Run(ctx context.Context) {
 	prevValues := map[string]string{}
 	for {
-		for name, valueConfig := range w.valueConfigs {
+		for name, valueConfig := range w.configs() {
 			subCh, ok := w.getSubscriber(name)
 			if !ok {
 				continue

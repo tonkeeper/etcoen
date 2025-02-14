@@ -13,7 +13,23 @@ type Value[T any] struct {
 	value T
 }
 
-func Subscribe[T any](watcher *Watcher, e *Value[T]) (chan T, error) {
+type SubscribeOptions struct {
+	Default *string
+}
+
+type SubscribeOption func(*SubscribeOptions)
+
+func OverrideDefault(value string) SubscribeOption {
+	return func(options *SubscribeOptions) {
+		options.Default = &value
+	}
+}
+
+func Subscribe[T any](watcher *Watcher, e *Value[T], opts ...SubscribeOption) (chan T, error) {
+	options := &SubscribeOptions{}
+	for _, o := range opts {
+		o(options)
+	}
 	ptrValue := reflect.ValueOf(e)
 	if ptrValue.Kind() != reflect.Pointer {
 		return nil, fmt.Errorf("the provided value must be a pointer")
@@ -30,7 +46,7 @@ func Subscribe[T any](watcher *Watcher, e *Value[T]) (chan T, error) {
 		return nil, fmt.Errorf("the provided value is not a field of the config struct")
 	}
 	stringCh := make(chan string)
-	if !watcher.subscribe(name, stringCh) {
+	if !watcher.subscribe(name, stringCh, options.Default) {
 		return nil, fmt.Errorf("you are already subscribed to this config variable")
 	}
 	ch := make(chan T)

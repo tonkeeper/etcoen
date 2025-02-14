@@ -47,7 +47,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	strCh, err := etcdConfig.Subscribe(watcher, &c.StringValue)
+	strCh, err := etcdConfig.Subscribe(watcher, &c.StringValue, etcdConfig.OverrideDefault("say-goodbye"))
 	if err != nil {
 		panic(err)
 	}
