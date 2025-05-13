@@ -1,12 +1,12 @@
-module github.com/tonkeeper/etcd-go-config/example
+module github.com/tonkeeper/etcoen/example
 
 go 1.23.1
 
-replace github.com/tonkeeper/etcd-go-config => ../.
+replace github.com/tonkeeper/etcoen => ../.
 
 require (
 	github.com/caarlos0/env/v6 v6.10.1
-	github.com/tonkeeper/etcd-go-config v0.0.0-20250214100313-e243303b9155
+	github.com/tonkeeper/etcoen v0.0.0-20250214100313-e243303b9155
 	go.uber.org/zap v1.17.0
 )
 

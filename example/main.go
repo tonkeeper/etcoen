@@ -8,7 +8,7 @@ import (
 	"github.com/caarlos0/env/v6"
 	"go.uber.org/zap"
 
-	etcdConfig "github.com/tonkeeper/etcd-go-config"
+	etcdConfig "github.com/tonkeeper/etcoen"
 )
 
 type JsonStruct struct {

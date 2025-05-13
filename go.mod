@@ -1,4 +1,4 @@
-module github.com/tonkeeper/etcd-go-config
+module github.com/tonkeeper/etcoen
 
 go 1.23.1
 
