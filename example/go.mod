@@ -7,7 +7,6 @@ replace github.com/tonkeeper/etcoen => ../.
 require (
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/tonkeeper/etcoen v0.0.0-20250214100313-e243303b9155
-	go.uber.org/zap v1.17.0
 )
 
 require (

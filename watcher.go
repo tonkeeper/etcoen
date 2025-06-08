@@ -13,7 +13,6 @@ import (
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 )
 
@@ -50,7 +49,6 @@ func WithRefreshInterval(refreshInterval time.Duration) Option {
 }
 
 type Watcher struct {
-	logger         *zap.Logger
 	cli            *clientv3.Client
 	pathParameters map[string]string
 
@@ -69,7 +67,7 @@ type valueConfig struct {
 	Default string
 }
 
-func NewWatcher(logger *zap.Logger, conf any, options ...Option) (*Watcher, error) {
+func NewWatcher(conf any, options ...Option) (*Watcher, error) {
 	opts := &Options{
 		RefreshInterval: 5 * time.Second,
 		PathParameters:  make(map[string]string),
@@ -125,7 +123,6 @@ func NewWatcher(logger *zap.Logger, conf any, options ...Option) (*Watcher, erro
 		return nil, err
 	}
 	return &Watcher{
-		logger:          logger,
 		cli:             cli,
 		fields:          etcdFields,
 		valueConfigs:    valueConfigs,

@@ -33,7 +33,7 @@ func main() {
 		panic(err)
 	}
 
-	watcher, err := etcdConfig.NewWatcher(zap.L(), &c,
+	watcher, err := etcdConfig.NewWatcher(&c,
 		etcdConfig.WithEtcdConnection(c.EtcdUser, c.EtcdPassword, c.EtcdCaPath, c.EtcdEndpoints),
 		etcdConfig.WithPathParameter("DeploymentGroup", c.DeploymentGroup),
 	)

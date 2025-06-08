@@ -3,10 +3,9 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strconv"
-
-	"go.uber.org/zap"
 )
 
 type Value[T any] struct {
@@ -57,9 +56,9 @@ func Subscribe[T any](watcher *Watcher, e *Value[T], opts ...SubscribeOption) (c
 			case int:
 				value, err := strconv.Atoi(str)
 				if err != nil {
-					watcher.logger.Error("failed to decode int value from etcd",
-						zap.String("value", str),
-						zap.String("name", name))
+					slog.Default().Error("failed to decode int value from etcd",
+						"value", str,
+						"name", name)
 				}
 				ch <- any(value).(T)
 			case string:
@@ -67,9 +66,9 @@ func Subscribe[T any](watcher *Watcher, e *Value[T], opts ...SubscribeOption) (c
 			default:
 				var value T
 				if err := json.Unmarshal([]byte(str), &value); err != nil {
-					watcher.logger.Error("failed to decode json value from etcd",
-						zap.String("value", str),
-						zap.String("name", name))
+					slog.Default().Error("failed to decode json value from etcd",
+						"value", str,
+						"name", name)
 				}
 				ch <- value
 			}
