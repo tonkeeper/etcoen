@@ -7,7 +7,7 @@ import (
 
 	"github.com/caarlos0/env/v6"
 
-	etcdConfig "github.com/tonkeeper/etcoen"
+	"github.com/tonkeeper/etcoen"
 )
 
 type JsonStruct struct {
@@ -16,16 +16,11 @@ type JsonStruct struct {
 }
 
 type Config struct {
-	EtcdEndpoints []string `env:"ETCD_ENDPOINTS" envSeparator:","`
-	EtcdUser      string   `env:"ETCD_USER"`
-	EtcdPassword  string   `env:"ETCD_PASSWORD"`
-	EtcdCaPath    string   `env:"ETCD_CA_CERT_PATH"`
-
 	DeploymentGroup string `env:"DEPLOYMENT_GROUP" envDefault:"hello-group"`
 
-	IntValue    etcdConfig.Value[int]        `etcd:"/app-config/{{.DeploymentGroup}}/int_value" etcdDefault:"17"`
-	StringValue etcdConfig.Value[string]     `etcd:"/app-config/{{.DeploymentGroup}}/string_value" etcdDefault:"say-hello"`
-	JsonValue   etcdConfig.Value[JsonStruct] `etcd:"/app-config/{{.DeploymentGroup}}/json_value" etcdDefault:"{}"`
+	IntValue    etcoen.Value[int]        `etcd:"/app-config/{{.DeploymentGroup}}/int_value" etcdDefault:"17"`
+	StringValue etcoen.Value[string]     `etcd:"/app-config/{{.DeploymentGroup}}/string_value" etcdDefault:"say-hello"`
+	JsonValue   etcoen.Value[JsonStruct] `etcd:"/app-config/{{.DeploymentGroup}}/json_value" etcdDefault:"{}"`
 }
 
 func main() {
@@ -35,22 +30,21 @@ func main() {
 		panic(err)
 	}
 
-	watcher, err := etcdConfig.NewWatcher(&c,
-		etcdConfig.WithEtcdConnection(c.EtcdUser, c.EtcdPassword, c.EtcdCaPath, c.EtcdEndpoints),
-		etcdConfig.WithPathParameter("DeploymentGroup", c.DeploymentGroup),
+	watcher, err := etcoen.NewWatcher(&c,
+		etcoen.WithPathParameter("DeploymentGroup", c.DeploymentGroup),
 	)
 	if err != nil {
 		panic(err)
 	}
-	intCh, err := etcdConfig.Subscribe(watcher, &c.IntValue)
+	intCh, err := etcoen.Subscribe(watcher, &c.IntValue)
 	if err != nil {
 		panic(err)
 	}
-	strCh, err := etcdConfig.Subscribe(watcher, &c.StringValue, etcdConfig.OverrideDefault("say-goodbye"))
+	strCh, err := etcoen.Subscribe(watcher, &c.StringValue, etcoen.OverrideDefault("say-goodbye"))
 	if err != nil {
 		panic(err)
 	}
-	jsonCh, err := etcdConfig.Subscribe(watcher, &c.JsonValue)
+	jsonCh, err := etcoen.Subscribe(watcher, &c.JsonValue)
 	if err != nil {
 		panic(err)
 	}

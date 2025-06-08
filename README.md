@@ -3,10 +3,19 @@
 
 This library helps to read configuration from etcd and watch for changes. 
 
+# ETCD Credentials
+
+The library automatically reads ETCD connection parameters from environment variables:
+- `ETCD_ENDPOINTS` - comma-separated list of ETCD endpoints
+- `ETCD_USER` - ETCD username
+- `ETCD_PASSWORD` - ETCD password
+- `ETCD_CA_CERT_PATH` - path to CA certificate file (defaults to "DISABLE" if not provided)
+
+You can also set these parameters programmatically using the `WithEtcdConnection` option if needed.
+
 # Example
 
-```
-golang
+```golang
 
 type JsonStruct struct {
 	A int
@@ -14,11 +23,6 @@ type JsonStruct struct {
 }
 
 type Config struct {
-	EtcdEndpoints []string `env:"ETCD_ENDPOINTS" envSeparator:","`
-	EtcdUser      string   `env:"ETCD_USER"`
-	EtcdPassword  string   `env:"ETCD_PASSWORD"`
-	EtcdCaPath    string   `env:"ETCD_CA_CERT_PATH"`
-
 	DeploymentGroup string `env:"DEPLOYMENT_GROUP" envDefault:"hello-group"`
 
 	IntValue    etcdConfig.Value[int]        `etcd:"/app-config/{{.DeploymentGroup}}/int_value" etcdDefault:"17"`
@@ -34,7 +38,6 @@ func main() {
 	}
 
 	watcher, err := etcdConfig.NewWatcher(&c,
-		etcdConfig.WithEtcdConnection(c.EtcdUser, c.EtcdPassword, c.EtcdCaPath, c.EtcdEndpoints),
 		etcdConfig.WithPathParameter("DeploymentGroup", c.DeploymentGroup),
 	)
 	if err != nil {

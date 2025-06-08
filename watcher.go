@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -74,6 +75,27 @@ func NewWatcher(conf any, options ...Option) (*Watcher, error) {
 	}
 	for _, o := range options {
 		o(opts)
+	}
+
+	// If etcd connection parameters are not provided, read them from environment variables
+	if len(opts.EtcdEndpoints) == 0 {
+		if endpoints := os.Getenv("ETCD_ENDPOINTS"); endpoints != "" {
+			// Split by comma as per the example's envSeparator
+			opts.EtcdEndpoints = strings.Split(endpoints, ",")
+		}
+	}
+	if opts.EtcdUsername == "" {
+		opts.EtcdUsername = os.Getenv("ETCD_USER")
+	}
+	if opts.EtcdPassword == "" {
+		opts.EtcdPassword = os.Getenv("ETCD_PASSWORD")
+	}
+	if opts.EtcdCaPath == "" {
+		opts.EtcdCaPath = os.Getenv("ETCD_CA_CERT_PATH")
+		// Set default value for ETCD_CA_CERT_PATH if not provided
+		if opts.EtcdCaPath == "" {
+			opts.EtcdCaPath = "tls/ca.crt"
+		}
 	}
 
 	val := reflect.ValueOf(conf)
