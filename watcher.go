@@ -1,16 +1,15 @@
 package config
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -19,7 +18,6 @@ import (
 
 type Options struct {
 	RefreshInterval time.Duration
-	PathParameters  map[string]string
 	EtcdUsername    string
 	EtcdPassword    string
 	EtcdCaPath      string
@@ -37,12 +35,6 @@ func WithEtcdConnection(username, password, caPath string, endpoints []string) O
 	}
 }
 
-func WithPathParameter(name string, value string) Option {
-	return func(o *Options) {
-		o.PathParameters[name] = value
-	}
-}
-
 func WithRefreshInterval(refreshInterval time.Duration) Option {
 	return func(o *Options) {
 		o.RefreshInterval = refreshInterval
@@ -50,9 +42,7 @@ func WithRefreshInterval(refreshInterval time.Duration) Option {
 }
 
 type Watcher struct {
-	cli            *clientv3.Client
-	pathParameters map[string]string
-
+	cli             *clientv3.Client
 	refreshInterval time.Duration
 	etcdTimeout     time.Duration
 
@@ -71,7 +61,6 @@ type valueConfig struct {
 func NewWatcher(conf any, options ...Option) (*Watcher, error) {
 	opts := &Options{
 		RefreshInterval: 5 * time.Second,
-		PathParameters:  make(map[string]string),
 	}
 	for _, o := range options {
 		o(opts)
@@ -117,8 +106,15 @@ func NewWatcher(conf any, options ...Option) (*Watcher, error) {
 		address := val.Elem().Field(i).Addr().Interface()
 		// Store the field name and its address in the map
 		etcdFields[name] = address
+
+		// Substitute variables in the path during initialization
+		substitutedPath, err := substitutePathVariables(etcdPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to substitute variables in path for field %s: %w", name, err)
+		}
+
 		valueConfigs[name] = valueConfig{
-			Path:    etcdPath,
+			Path:    substitutedPath,
 			Default: fieldTag.Get("etcdDefault"),
 		}
 	}
@@ -148,7 +144,6 @@ func NewWatcher(conf any, options ...Option) (*Watcher, error) {
 		cli:             cli,
 		fields:          etcdFields,
 		valueConfigs:    valueConfigs,
-		pathParameters:  opts.PathParameters,
 		subscribers:     map[string]chan string{},
 		refreshInterval: opts.RefreshInterval,
 		etcdTimeout:     2 * time.Second,
@@ -179,19 +174,42 @@ func (w *Watcher) getSubscriber(name string) (chan string, bool) {
 	return ch, ok
 }
 
+// Regular expression to find patterns like {{VAR_NAME}}
+var re = regexp.MustCompile(`\{\{\.?([A-Za-z0-9_]+)\}\}`)
+
+// substitutePathVariables replaces variable patterns in the path with their environment values
+func substitutePathVariables(path string) (string, error) {
+	// Find all matches in the path
+	matches := re.FindAllStringSubmatch(path, -1)
+
+	// Process each match
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+
+		// Extract the variable name
+		varName := match[1]
+
+		// Look up the variable in the environment
+		envValue := os.Getenv(varName)
+		if envValue == "" {
+			return "", fmt.Errorf("environment variable %s not found", varName)
+		}
+
+		// Replace the pattern with the environment value
+		path = strings.Replace(path, match[0], envValue, -1)
+	}
+
+	return path, nil
+}
+
 func (w *Watcher) readCurrentValue(ctx context.Context, name, path string, defaultValue string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, w.etcdTimeout)
 	defer cancel()
 
-	tmpl, err := template.New(fmt.Sprintf("config-value-%s", name)).Parse(path)
-	if err != nil {
-		return "", err
-	}
-	buf := bytes.Buffer{}
-	if err = tmpl.Execute(&buf, w.pathParameters); err != nil {
-		return "", err
-	}
-	response, err := w.cli.Get(ctx, buf.String())
+	// Query etcd with the path (which should already be processed)
+	response, err := w.cli.Get(ctx, path)
 	if err != nil {
 		return "", err
 	}

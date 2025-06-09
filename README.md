@@ -9,7 +9,7 @@ The library automatically reads ETCD connection parameters from environment vari
 - `ETCD_ENDPOINTS` - comma-separated list of ETCD endpoints
 - `ETCD_USER` - ETCD username
 - `ETCD_PASSWORD` - ETCD password
-- `ETCD_CA_CERT_PATH` - path to CA certificate file (defaults to "DISABLE" if not provided)
+- `ETCD_CA_CERT_PATH` - path to CA certificate file (defaults to "tls/ca.crt" if not provided. "DISABLE" to disable TLS)
 
 You can also set these parameters programmatically using the `WithEtcdConnection` option if needed.
 
