@@ -3,9 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"reflect"
-
-	"github.com/caarlos0/env/v6"
 
 	etcoen "github.com/tonkeeper/etcoen"
 )
@@ -25,9 +22,6 @@ type Config struct {
 
 func main() {
 	c := Config{}
-	if err := env.ParseWithFuncs(&c, map[reflect.Type]env.ParserFunc{}); err != nil {
-		panic(err)
-	}
 
 	watcher, err := etcoen.NewWatcher(&c)
 	if err != nil {

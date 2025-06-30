@@ -4,10 +4,7 @@ go 1.23.1
 
 replace github.com/tonkeeper/etcoen => ../.
 
-require (
-	github.com/caarlos0/env/v6 v6.10.1
-	github.com/tonkeeper/etcoen v0.0.0-20250214100313-e243303b9155
-)
+require github.com/tonkeeper/etcoen v0.0.0-20250214100313-e243303b9155
 
 require (
 	github.com/coreos/go-semver v0.3.0 // indirect
