@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,6 +59,109 @@ type valueConfig struct {
 	Default string
 }
 
+// parseEnv fills struct fields marked with `env`, `envDefault` and
+// `envSeparator` tags from the environment.
+func parseEnv(target any) error {
+	v := reflect.ValueOf(target)
+	if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("env target must be pointer to struct")
+	}
+	return parseEnvStruct(v.Elem())
+}
+
+func parseEnvStruct(v reflect.Value) error {
+	t := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		ft := t.Field(i)
+		if ft.Anonymous && field.Kind() == reflect.Struct {
+			if err := parseEnvStruct(field); err != nil {
+				return err
+			}
+			continue
+		}
+		envName := ft.Tag.Get("env")
+		if envName == "" {
+			continue
+		}
+		val, ok := os.LookupEnv(envName)
+		if !ok {
+			val = ft.Tag.Get("envDefault")
+			if val == "" {
+				continue
+			}
+		}
+		sep := ft.Tag.Get("envSeparator")
+		if err := setValueFromString(field, val, sep); err != nil {
+			return fmt.Errorf("field %s: %w", ft.Name, err)
+		}
+	}
+	return nil
+}
+
+func setValueFromString(field reflect.Value, val, sep string) error {
+	if field.Kind() == reflect.Pointer {
+		if field.IsNil() {
+			field.Set(reflect.New(field.Type().Elem()))
+		}
+		return setValueFromString(field.Elem(), val, sep)
+	}
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(val)
+	case reflect.Bool:
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			return err
+		}
+		field.SetBool(b)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if field.Type().PkgPath() == "" && field.Type().Name() == "Duration" {
+			d, err := time.ParseDuration(val)
+			if err != nil {
+				return err
+			}
+			field.SetInt(int64(d))
+			return nil
+		}
+		i, err := strconv.ParseInt(val, 10, field.Type().Bits())
+		if err != nil {
+			return err
+		}
+		field.SetInt(i)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		u, err := strconv.ParseUint(val, 10, field.Type().Bits())
+		if err != nil {
+			return err
+		}
+		field.SetUint(u)
+	case reflect.Float32, reflect.Float64:
+		f, err := strconv.ParseFloat(val, field.Type().Bits())
+		if err != nil {
+			return err
+		}
+		field.SetFloat(f)
+	case reflect.Slice:
+		if sep == "" {
+			sep = ","
+		}
+		parts := strings.Split(val, sep)
+		slice := reflect.MakeSlice(field.Type(), len(parts), len(parts))
+		for i, p := range parts {
+			if err := setValueFromString(slice.Index(i), strings.TrimSpace(p), ""); err != nil {
+				return err
+			}
+		}
+		field.Set(slice)
+	case reflect.Struct:
+		// currently not supported except time.Duration above
+		return fmt.Errorf("unsupported kind %s", field.Kind())
+	default:
+		return fmt.Errorf("unsupported kind %s", field.Kind())
+	}
+	return nil
+}
+
 func NewWatcher(conf any, options ...Option) (*Watcher, error) {
 	opts := &Options{
 		RefreshInterval: 5 * time.Second,
@@ -90,6 +194,10 @@ func NewWatcher(conf any, options ...Option) (*Watcher, error) {
 	val := reflect.ValueOf(conf)
 	if val.Kind() != reflect.Pointer {
 		return nil, fmt.Errorf("conf must be a pointer to a struct")
+	}
+
+	if err := parseEnv(conf); err != nil {
+		return nil, err
 	}
 
 	etcdFields := make(map[string]any)
